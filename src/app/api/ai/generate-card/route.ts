@@ -23,7 +23,7 @@ Return ONLY valid JSON:
   "stat1Value": "value",
   "stat2Label": "label",
   "stat2Value": "value",
-  "linkedInPostText": "post text for LinkedIn share with @VISIONIXFounders #BuildingInPublic"
+  "linkedInPostText": "post text for LinkedIn share. It must mention VEIXON Co-founders, a product by @VEIXON Tech, and include #BuildingInPublic"
 }`
 
     const input = `Generate a ${cardType} card for:

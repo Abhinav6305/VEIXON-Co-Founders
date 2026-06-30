@@ -1,15 +1,16 @@
-import Artifact from '@/models/Artifact'
+import prisma from '@/lib/prisma'
 import { CodeArtifact } from './frontend'
 
 export async function persistCodeArtifacts(workspaceId: string, files: CodeArtifact[]) {
-  // Save each file as a 'code' artifact in MongoDB
-  const artifactPromises = files.map(file => {
-    return Artifact.create({
-      workspaceId,
-      artifactType: 'code',
-      content: file,
-      version: 1,
-      isApproved: false
+  const artifactPromises = files.map((file) => {
+    return prisma.artifact.create({
+      data: {
+        workspaceId,
+        artifactType: 'code',
+        content: JSON.stringify(file),
+        version: 1,
+        isApproved: false,
+      },
     })
   })
 

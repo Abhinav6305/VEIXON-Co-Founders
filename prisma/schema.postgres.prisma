@@ -22,6 +22,9 @@ generator client {
 model Startup {
   id                 String   @id @default(cuid())
   userId             String
+  orgId              String?
+  cohortId           String?
+  founderEmail       String?
   ideaText           String?
   targetCustomer     String?
   problem            String?
@@ -64,6 +67,9 @@ model Startup {
   workspaces         Workspace[]
   decisions          Decision[]
 
+  org                Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  cohort             Cohort?       @relation(fields: [cohortId], references: [id], onDelete: SetNull)
+
   version            Int      @default(1)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
@@ -71,6 +77,80 @@ model Startup {
 
   @@index([userId])
   @@index([userId, createdAt])
+  @@index([orgId])
+  @@index([cohortId])
+}
+
+// ============================ Multi-tenancy (Phase 2) ============================
+model Organization {
+  id          String         @id @default(cuid())
+  name        String
+  slug        String         @unique
+  cohorts     Cohort[]
+  memberships Membership[]
+  startups    Startup[]
+  events      FounderEvent[]
+  version     Int            @default(1)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  deletedAt   DateTime?
+}
+
+model Cohort {
+  id        String       @id @default(cuid())
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId     String
+  name      String
+  startDate DateTime?
+  startups  Startup[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  deletedAt DateTime?
+
+  @@index([orgId])
+}
+
+// Org-scoped membership role: founder | mentor | admin | superadmin (string to avoid
+// clashing with the granular Role model already defined for fine-grained RBAC).
+model Membership {
+  id        String       @id @default(cuid())
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId     String
+  userId    String
+  role      String       @default("founder")
+  createdAt DateTime     @default(now())
+
+  @@unique([orgId, userId])
+  @@index([userId])
+}
+
+// ===================== Proprietary execution data engine (Phase 4) =====================
+model FounderEvent {
+  id        String        @id @default(cuid())
+  org       Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  orgId     String?
+  cohortId  String?
+  startupId String?
+  userId    String?
+  type      String
+  payload   Json?
+  createdAt DateTime      @default(now())
+
+  @@index([orgId, type])
+  @@index([startupId])
+  @@index([type, createdAt])
+}
+
+model EmailLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  email     String
+  type      String
+  refId     String?
+  sentAt    DateTime @default(now())
+
+  @@index([email, type])
+  @@index([userId, type])
 }
 
 model CompletedTask {
@@ -251,17 +331,26 @@ model Checkin {
 }
 
 model Decision {
-  id          String   @id @default(cuid())
-  context     String?
-  optionsJson Json?
-  vznVerdict  String?
-  startup     Startup  @relation(fields: [startupId], references: [id], onDelete: Cascade)
-  startupId   String
-  version     Int      @default(1)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  deletedAt   DateTime?
+  id             String    @id @default(cuid())
+  userId         String?
+  description    String?
+  decisionType   String?
+  scenariosJson  Json?
+  recommendation String?
+  reasoning      String?
+  vznVoice       String?
+  // legacy columns
+  context        String?
+  optionsJson    Json?
+  vznVerdict     String?
+  startup        Startup?  @relation(fields: [startupId], references: [id], onDelete: Cascade)
+  startupId      String?
+  version        Int       @default(1)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
   @@index([startupId])
+  @@index([userId])
   @@index([startupId, createdAt])
 }
 

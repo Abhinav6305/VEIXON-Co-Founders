@@ -66,9 +66,9 @@ export default function WarPlanPage() {
     : buildAllSeedWeeks()
 
   return (
-    <AppShell title="90-Day War Plan" actions={<button onClick={() => router.back()} className="flex items-center gap-2 rounded-lg bg-[var(--bg-secondary)] px-4 py-2 text-sm font-semibold hover:opacity-80"><ArrowLeft size={16} /> Back to Dashboard</button>}>
-      <div className="mx-auto w-full max-w-6xl p-4 md:p-8 space-y-12">
-        <div className="text-center">
+    <AppShell title="90-Day War Plan" actions={<button onClick={() => router.back()} className="vzn-button-ghost flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold"><ArrowLeft size={16} /> Back to Dashboard</button>}>
+      <div className="vzn-page-pad mx-auto w-full max-w-6xl space-y-12">
+        <div className="vzn-panel-strong rounded-[1.5rem] p-6 text-center md:p-8">
           <h1 className="text-3xl font-bold mb-4">Your 90-Day War Plan</h1>
           <p className="text-[var(--text-muted)] max-w-2xl mx-auto">
             This is your exact day-by-day execution roadmap. Click into any day to view the hypothesis, run the execution timer, and log your debrief.
@@ -80,7 +80,7 @@ export default function WarPlanPage() {
           const isUnlocked = weekIndex === 0 || startup.weekUnlockStatus?.some((w: any) => w.week === mission.week && w.unlocked) || true // Temporarily force unlock for testing visibility
           
           return (
-            <section key={mission.week} className="space-y-4">
+            <section key={mission.week} className="vzn-panel rounded-[1.5rem] p-5 md:p-6">
               <div className="flex items-end justify-between border-b pb-2" style={{ borderColor: 'var(--border)' }}>
                 <div>
                   <div className="text-sm font-bold tracking-widest uppercase text-[var(--purple)]">Week {mission.week}: {mission.missionCode}</div>
@@ -98,8 +98,8 @@ export default function WarPlanPage() {
                     <Link
                       key={taskIndex}
                       href={`/dashboard/warplan/${mission.week}/${task.day || taskIndex + 1}`}
-                      className={`relative flex flex-col justify-between rounded-xl border p-5 transition-all hover:border-[var(--purple)] ${!isUnlocked ? 'opacity-50 pointer-events-none' : ''}`}
-                      style={{ background: isCompleted ? 'color-mix(in srgb, var(--teal) 5%, transparent)' : 'var(--card-bg)', borderColor: isCompleted ? 'var(--teal)' : 'var(--border)' }}
+                      className={`vzn-panel veixon-lift veixon-rise relative flex flex-col justify-between rounded-xl p-5 ${!isUnlocked ? 'opacity-50 pointer-events-none' : ''}`}
+                      style={{ borderColor: isCompleted ? 'var(--teal)' : undefined, ['--d' as any]: `${Math.min(taskIndex, 6) * 0.05}s` }}
                     >
                       <div className="mb-6">
                         <div className="flex items-center justify-between mb-3">

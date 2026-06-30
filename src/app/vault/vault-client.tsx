@@ -4,7 +4,7 @@ import { useState } from 'react'
 import AppShell from '@/components/AppShell'
 import VZNAvatar from '@/components/ui/VZNAvatar'
 import VaultProgress from '@/components/dashboard/VaultProgress'
-import { Download, Lock, Mail, X } from 'lucide-react'
+import { Download, Loader2, Lock, Mail, X } from 'lucide-react'
 
 const vcs = [
   ['Sequoia India', 'Peak XV', 'Rs 5-50Cr', 'Seed-Growth'],
@@ -43,33 +43,63 @@ export default function VaultClient({ startup, initialUnlocked, progress }: { st
   const [email, setEmail] = useState<any>(null)
   const [slides, setSlides] = useState<any[]>(defaultSlides)
   const [slide, setSlide] = useState(0)
+  const [deckLoading, setDeckLoading] = useState(false)
+  const [deckError, setDeckError] = useState<string | null>(null)
+  const [introLoading, setIntroLoading] = useState(false)
+  const [introError, setIntroError] = useState<string | null>(null)
 
   async function requestIntro(vc: any) {
     setSelectedVc(vc)
-    const res = await fetch('/api/ai/pitch-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ profile: startup, vc: { name: vc[0], fund: vc[1] } }),
-    })
-    setEmail(await res.json())
+    setEmail(null)
+    setIntroError(null)
+    setIntroLoading(true)
+    try {
+      const res = await fetch('/api/ai/pitch-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profile: startup, vc: { name: vc[0], fund: vc[1] } }),
+      })
+      if (!res.ok) throw new Error('request failed')
+      const data = await res.json()
+      if (data?.error) throw new Error(data.error)
+      setEmail(data)
+    } catch {
+      setIntroError('VZN could not draft this intro right now. Close and try again.')
+    } finally {
+      setIntroLoading(false)
+    }
   }
 
   async function generateDeck() {
-    const res = await fetch('/api/ai/pitch-deck', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ profile: startup }),
-    })
-    const data = await res.json()
-    if (data.slides) setSlides([...data.slides, { slideNumber: 13, title: 'VZN Verification Badge', headline: 'Execution verified by VZN.', bullets: ['Scorecard complete.', 'War plan active.', 'Accountability tracked.'], vznNote: 'This badge means the founder executed before asking.' }])
+    setDeckError(null)
+    setDeckLoading(true)
+    try {
+      const res = await fetch('/api/ai/pitch-deck', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profile: startup }),
+      })
+      if (!res.ok) throw new Error('request failed')
+      const data = await res.json()
+      if (data.slides) {
+        setSlides([...data.slides, { slideNumber: 13, title: 'VZN Verification Badge', headline: 'Execution verified by VZN.', bullets: ['Scorecard complete.', 'War plan active.', 'Accountability tracked.'], vznNote: 'This badge means the founder executed before asking.' }])
+        setSlide(0)
+      } else {
+        throw new Error('no slides')
+      }
+    } catch {
+      setDeckError('VZN could not generate the deck right now. Try again in a moment.')
+    } finally {
+      setDeckLoading(false)
+    }
   }
 
   return (
     <AppShell title="VC Vault" subtitle={unlocked ? 'Your vault is open.' : 'Earn it before you ask.'}>
-      <div className="mx-auto w-full max-w-7xl p-4 md:p-8">
+      <div className="vzn-page-pad mx-auto w-full max-w-7xl">
         {!unlocked ? (
           <div className="grid min-h-[70vh] place-items-center text-center">
-            <div className="w-full max-w-[520px]">
+            <div className="vzn-panel-strong w-full max-w-[560px] rounded-[1.5rem] p-6 md:p-10">
               <Lock className="mx-auto h-16 w-16 text-[var(--purple)]" />
               <VZNAvatar size="lg" className="mx-auto my-6" />
               <h2 className="text-3xl font-bold">The vault is locked.</h2>
@@ -90,12 +120,20 @@ export default function VaultClient({ startup, initialUnlocked, progress }: { st
                 <h2 className="text-2xl font-bold">20 Indian VCs matched to your execution profile.</h2>
                 <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>Request intros only after the story is tight.</p>
               </div>
-              <button onClick={generateDeck} className="inline-flex items-center gap-2 rounded-xl bg-[var(--purple)] px-5 py-3 font-semibold text-white">
-                <Download className="h-4 w-4" /> Generate Pitch Deck
-              </button>
+              <div className="flex flex-col items-end gap-2">
+                <button
+                  onClick={generateDeck}
+                  disabled={deckLoading}
+                  className="vzn-button-primary inline-flex items-center gap-2 rounded-xl px-5 py-3 font-semibold transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {deckLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  {deckLoading ? 'VZN is building your deck…' : 'Generate Pitch Deck'}
+                </button>
+                {deckError && <p className="text-xs font-medium text-[var(--red)]">{deckError}</p>}
+              </div>
             </div>
 
-            <section className="mb-8 rounded-2xl border p-6 print-deck" style={{ background: 'var(--card-bg)', borderColor: 'var(--border)' }}>
+            <section className="vzn-panel-strong mb-8 rounded-[1.5rem] p-6 print-deck">
               <div className="print-slide min-h-[260px]">
                 <div className="text-sm text-[var(--purple)]">{slides[slide]?.slideNumber}/13 · {slides[slide]?.title}</div>
                 <h3 className="mt-4 text-3xl font-bold">{slides[slide]?.headline}</h3>
@@ -105,15 +143,15 @@ export default function VaultClient({ startup, initialUnlocked, progress }: { st
                 <p className="mt-6 italic text-[var(--teal)]">{slides[slide]?.vznNote}</p>
               </div>
               <div className="no-print mt-5 flex gap-2">
-                <button onClick={() => setSlide((value) => Math.max(0, value - 1))} className="rounded-lg border px-3 py-2" style={{ borderColor: 'var(--border)' }}>Prev</button>
-                <button onClick={() => setSlide((value) => Math.min(slides.length - 1, value + 1))} className="rounded-lg border px-3 py-2" style={{ borderColor: 'var(--border)' }}>Next</button>
-                <button onClick={() => window.print()} className="rounded-lg border px-3 py-2" style={{ borderColor: 'var(--border)' }}>Export PDF</button>
+                <button onClick={() => setSlide((value) => Math.max(0, value - 1))} className="vzn-button-ghost rounded-lg border px-3 py-2">Prev</button>
+                <button onClick={() => setSlide((value) => Math.min(slides.length - 1, value + 1))} className="vzn-button-ghost rounded-lg border px-3 py-2">Next</button>
+                <button onClick={() => window.print()} className="vzn-button-ghost rounded-lg border px-3 py-2">Export PDF</button>
               </div>
             </section>
 
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {vcs.map((vc) => (
-                <div key={vc[0]} className="rounded-2xl border p-5" style={{ background: 'var(--card-bg)', borderColor: 'var(--border)' }}>
+              {vcs.map((vc, i) => (
+                <div key={vc[0]} className="vzn-panel veixon-lift veixon-rise rounded-[1.5rem] p-5" style={{ ['--d' as any]: `${Math.min(i, 12) * 0.04}s` }}>
                   <h3 className="font-bold">{vc[0]}</h3>
                   <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{vc[1]}</p>
                   <div className="mt-3 flex flex-wrap gap-2 text-xs">
@@ -126,7 +164,7 @@ export default function VaultClient({ startup, initialUnlocked, progress }: { st
                     <li>- Traction-first story</li>
                   </ul>
                   <p className="mt-4 text-sm italic text-[var(--teal)]">VZN match: useful only if your proof is cleaner than your pitch.</p>
-                  <button onClick={() => requestIntro(vc)} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[var(--purple)] px-3 py-2 text-sm font-semibold text-white">
+                  <button onClick={() => requestIntro(vc)} className="vzn-button-primary mt-4 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold">
                     <Mail className="h-4 w-4" /> Request Intro
                   </button>
                 </div>
@@ -138,14 +176,30 @@ export default function VaultClient({ startup, initialUnlocked, progress }: { st
 
       {selectedVc && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-[var(--bg-primary)]/80 p-6 backdrop-blur-sm">
-          <div className="w-full max-w-[640px] rounded-2xl border p-6" style={{ background: 'var(--card-bg)', borderColor: 'var(--border)' }}>
+          <div className="vzn-panel-strong w-full max-w-[640px] rounded-[1.5rem] p-6">
             <button onClick={() => setSelectedVc(null)} className="float-right"><X className="h-5 w-5" /></button>
             <h3 className="text-xl font-bold">Intro email to {selectedVc[0]}</h3>
-            <input value={email?.subject || ''} onChange={(event) => setEmail((prev: any) => ({ ...prev, subject: event.target.value }))} className="mt-5 w-full rounded-lg border px-3 py-2" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }} />
-            <textarea value={email?.body || ''} onChange={(event) => setEmail((prev: any) => ({ ...prev, body: event.target.value }))} rows={10} className="mt-3 w-full rounded-lg border p-3" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }} />
-            <button onClick={() => navigator.clipboard?.writeText(`${email?.subject}\n\n${email?.body}`)} className="mt-4 rounded-lg bg-[var(--purple)] px-4 py-2 text-sm font-semibold text-white">
-              Copy email
-            </button>
+            {introLoading ? (
+              <div className="mt-8 flex flex-col items-center justify-center gap-3 py-10 text-center" style={{ color: 'var(--text-muted)' }}>
+                <Loader2 className="h-7 w-7 animate-spin text-[var(--purple)]" />
+                <p className="text-sm">VZN is drafting your intro to {selectedVc[0]}…</p>
+              </div>
+            ) : introError ? (
+              <div className="mt-8 py-10 text-center">
+                <p className="text-sm font-medium text-[var(--red)]">{introError}</p>
+                <button onClick={() => requestIntro(selectedVc)} className="vzn-button-ghost mt-4 rounded-lg border px-4 py-2 text-sm font-semibold">
+                  Retry
+                </button>
+              </div>
+            ) : (
+              <>
+                <input value={email?.subject || ''} onChange={(event) => setEmail((prev: any) => ({ ...prev, subject: event.target.value }))} className="vzn-input mt-5 w-full rounded-lg px-3 py-2" />
+                <textarea value={email?.body || ''} onChange={(event) => setEmail((prev: any) => ({ ...prev, body: event.target.value }))} rows={10} className="vzn-input mt-3 w-full rounded-lg p-3" />
+                <button onClick={() => navigator.clipboard?.writeText(`${email?.subject}\n\n${email?.body}`)} className="vzn-button-primary mt-4 rounded-lg px-4 py-2 text-sm font-semibold">
+                  Copy email
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

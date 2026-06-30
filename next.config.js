@@ -26,15 +26,18 @@ const nextConfig = {
     pagesBufferLength: 2,
   },
   async headers() {
+    // Explicit frame allow-list (Phase 5): same-origin by default so the landing
+    // iframe keeps working, plus any extra origins from FRAME_ANCESTORS (space-separated).
+    const frameAncestors = ["'self'", ...(process.env.FRAME_ANCESTORS || "").split(/\s+/).filter(Boolean)].join(" ");
     return [
       {
         source: "/(.*)",
         headers: [
-          { key: "X-Frame-Options", value: "ALLOWALL" },
-          { key: "Content-Security-Policy", value: "frame-ancestors *;" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Content-Security-Policy", value: `frame-ancestors ${frameAncestors};` },
           { key: "Access-Control-Allow-Origin", value: process.env.CORS_ORIGINS || "*" },
           { key: "Access-Control-Allow-Methods", value: "GET, POST, PUT, DELETE, OPTIONS" },
-          { key: "Access-Control-Allow-Headers", value: "*" },
+          { key: "Access-Control-Allow-Headers", value: "Content-Type, Authorization" },
         ],
       },
     ];

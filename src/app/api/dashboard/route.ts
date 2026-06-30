@@ -1,3 +1,5 @@
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { getLatestCheckin, getLatestStartup, listDecisions } from '@/lib/server-store'
 
 export const runtime = 'nodejs'
@@ -10,14 +12,37 @@ function health(startup: any) {
   return Math.min(100, Math.round(avg * 7 + accountability * 3))
 }
 
-export async function GET(req: Request) {
+function totalPlanTasks(startup: any) {
+  const planned = (startup?.warPlanJson || []).reduce((sum: number, mission: any) => {
+    return sum + (mission.dailyTasks?.length || 0)
+  }, 0)
+
+  return Math.max(90, planned || 0)
+}
+
+const EMPTY = {
+  startup: null,
+  checkin: null,
+  decisions: [],
+  tasks: [],
+  insight: 'Sign in and run your first check-in and I will tell you where you are drifting.',
+  stats: { startupHealth: 0, accountability: 0, decisionsThisMonth: 0, pivotStatus: 'AMBER', completedCount: 0, totalTasks: 90, taskProgress: 0 },
+}
+
+export async function GET(_req: Request) {
   try {
-    const { searchParams } = new URL(req.url)
-    const userId = searchParams.get('userId') || 'anonymous'
+    // Never trust a client-supplied userId — derive the owner from the session only.
+    const session = await getServerSession(authOptions)
+    const userId = (session?.user as any)?.id
+    if (!userId) return Response.json(EMPTY)
+
     const startup = await getLatestStartup(userId)
     const checkin = await getLatestCheckin(userId)
     const decisions = await listDecisions(userId)
     const tasks = checkin?.tasksJson || startup?.warPlanJson?.[0]?.dailyTasks || []
+    const totalTasks = totalPlanTasks(startup)
+    const completedCount = startup?.completedTasks?.length || 0
+    const taskProgress = totalTasks ? Math.min(100, Math.round((completedCount / totalTasks) * 100)) : 0
     const pivotStatus = startup?.taskCompletionRate && startup.taskCompletionRate > 0.7 ? 'GREEN' : startup?.accountabilityScore && startup.accountabilityScore < 45 ? 'RED' : 'AMBER'
 
     return Response.json({
@@ -31,6 +56,9 @@ export async function GET(req: Request) {
         accountability: startup?.accountabilityScore || checkin?.accountabilityScore || 0,
         decisionsThisMonth: decisions.length,
         pivotStatus,
+        completedCount,
+        totalTasks,
+        taskProgress,
       },
     })
   } catch {

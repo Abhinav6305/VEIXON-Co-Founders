@@ -1,5 +1,6 @@
 import { callClaudeJson } from '@/lib/anthropic'
 import { newId, saveCheckin, updateStartup } from '@/lib/server-store'
+import { recordFounderEvent } from '@/lib/events'
 
 export const runtime = 'nodejs'
 
@@ -36,6 +37,7 @@ export async function POST(req: Request) {
       createdAt: new Date().toISOString(),
     })
     if (body.startupId) await updateStartup(body.startupId, { accountabilityScore: result.accountabilityScore || 0 })
+    await recordFounderEvent({ type: 'checkin', startupId: body.startupId || null, userId: body.userId || null, payload: { accountabilityScore: result.accountabilityScore || 0 } })
     return Response.json({ id, ...result })
   } catch {
     return Response.json({ error: 'AI unavailable', fallback: true }, { status: 500 })

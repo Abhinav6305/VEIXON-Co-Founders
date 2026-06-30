@@ -24,6 +24,20 @@ export const authOptions: NextAuthOptions = {
       }
     },
   },
+  events: {
+    // First/every sign-in - send a one-time welcome email (idempotent via EmailLog).
+    async signIn({ user }) {
+      try {
+        if (!user?.email) return
+        const { dispatchEmail } = await import('@/lib/email/service')
+        const { welcomeEmail } = await import('@/lib/email/templates')
+        const { subject, html } = welcomeEmail(user.name || user.email.split('@')[0])
+        await dispatchEmail({ type: 'welcome', to: user.email, userId: (user as any).id, subject, html, once: true })
+      } catch {
+        /* never block sign-in on email */
+      }
+    },
+  },
   pages: {
     signIn: '/auth',
   },

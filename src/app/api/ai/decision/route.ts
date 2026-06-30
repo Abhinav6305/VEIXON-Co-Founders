@@ -32,6 +32,23 @@ export async function POST(req: Request) {
       vznVoice: result.vzn_voice,
       createdAt: new Date().toISOString(),
     })
+
+    // Email the founder a summary of the decision VZN just ran.
+    if (body.email) {
+      try {
+        const { dispatchEmail } = await import('@/lib/email/service')
+        const { decisionEmail } = await import('@/lib/email/templates')
+        const { subject, html } = decisionEmail(body.name || String(body.email).split('@')[0], {
+          description: body.description,
+          recommendation: result.recommendation,
+          reasoning: result.reasoning,
+        })
+        await dispatchEmail({ type: 'decision', to: body.email, userId: body.userId, refId: id, subject, html, once: true })
+      } catch {
+        /* email is best-effort */
+      }
+    }
+
     return Response.json({ id, ...result })
   } catch {
     return Response.json({ error: 'AI unavailable', fallback: true }, { status: 500 })

@@ -1,5 +1,4 @@
-import { callClaudeJson } from '@/lib/anthropic'
-import type { MarketIntelligence } from '@/lib/types'
+import { chat } from '@/lib/ai'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -51,28 +50,37 @@ FOUNDER CONTEXT:
 
 PERSONALITY:
 Direct. Sharp. Zero filler. Never say "Great!" or "Awesome!".
-Short sentences. One follow-up question when needed.
-Reference their actual data when relevant.
-Challenge laziness. Celebrate real wins briefly then push forward.
-Max 3 sentences unless they ask for something long-form.
+Short sentences. One follow-up question when it helps.
+Reference their actual data when relevant. Challenge laziness.
+Celebrate real wins briefly, then push forward.
+Max 3 sentences unless they explicitly ask for something long-form.
 
-SPECIAL MODES:
-- If they mention competitors: use the market intelligence data to give specific intel
-- If they want to pivot: challenge hard with 3 specific questions before engaging
-- If they ask about vault unlock: give exact gap with numbers
-- If they analyse a new idea: run a quick 3-point analysis and be honest
+Never invent precise statistics or cite named sources. If you estimate a number, say it is an estimate.
 
-OUTPUT FORMAT: Return ONLY valid JSON: { "reply": "your response as a string" }`
+Reply in plain conversational text as VZN. Do NOT return JSON, markdown headings, or any preamble — just the reply.`
 
-    const response = await callClaudeJson<{ reply: string }>({
-      system: systemPrompt,
-      body: { text: `Founder message: ${message}` },
-      maxTokens: 500,
-    })
+    const res = await chat(
+      {
+        system: systemPrompt,
+        messages: [{ role: 'user', content: message }],
+        maxTokens: 400,
+        temperature: 0.6,
+      },
+      { tier: 'default', retries: 1 },
+    )
 
-    return Response.json({ reply: response.reply || 'VZN is thinking...' })
-  } catch (error) {
-    console.error('VZN chat error:', error)
-    return Response.json({ error: 'AI unavailable', fallback: true }, { status: 500 })
+    const reply = (res.text || '').trim()
+    if (!reply) {
+      return Response.json({ error: 'AI returned empty response', fallback: true }, { status: 502 })
+    }
+    return Response.json({ reply, provider: res.provider })
+  } catch (error: any) {
+    // Surface the real reason in the server log + response so failures are diagnosable
+    // instead of silently degrading to canned replies.
+    console.error('VZN chat error:', error?.code || '', error?.message || error)
+    return Response.json(
+      { error: 'AI unavailable', code: error?.code, detail: String(error?.message || error), fallback: true },
+      { status: 502 },
+    )
   }
 }

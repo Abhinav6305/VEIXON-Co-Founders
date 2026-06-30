@@ -65,6 +65,56 @@ export async function POST(req: Request) {
       // persistence is best-effort; still return the analysis.
     }
 
+    // First-idea email: the analysis report (once per founder).
+    if (!body.startupId && id && body.email) {
+      try {
+        const sc: any = (analysis as any).scorecard
+        const scores = sc
+          ? Object.values(sc).map((dimension: any) => Number(dimension?.score) || 0)
+          : []
+        const composite = scores.length
+          ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length)
+          : undefined
+        const { dispatchEmail } = await import('@/lib/email/service')
+        const { analysisReportEmail } = await import('@/lib/email/templates')
+        const { subject, html } = analysisReportEmail(body.name || String(body.email).split('@')[0], {
+          idea: body.idea || body.ideaText || '',
+          failureProbability: analysis.failureProbability,
+          composite,
+          vzn: analysis.vzn_voice,
+          startupId: id,
+        })
+        await dispatchEmail({ type: 'analysis_report', to: body.email, userId: body.userId, subject, html, once: true })
+      } catch {
+        /* email is best-effort */
+      }
+    }
+
+    if (!body.startupId) {
+      try {
+        const sc: any = (analysis as any).scorecard
+        const scores = sc
+          ? Object.values(sc).map((dimension: any) => Number(dimension?.score) || 0)
+          : []
+        const composite = scores.length
+          ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length)
+          : undefined
+        const { dispatchIdeaSubmissionNotice } = await import('@/lib/email/service')
+        await dispatchIdeaSubmissionNotice({
+          startupId: id,
+          founderEmail: body.email,
+          founderName: body.name,
+          idea: body.idea || body.ideaText || '',
+          targetCustomer: body.targetCustomer || '',
+          problem: body.problem || '',
+          failureProbability: analysis.failureProbability,
+          composite,
+        })
+      } catch {
+        /* admin email is best-effort */
+      }
+    }
+
     return Response.json({ id, fallback: usedFallback, analysis })
   } catch {
     return Response.json({ error: 'analysis_failed' }, { status: 500 })

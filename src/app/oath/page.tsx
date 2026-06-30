@@ -3,6 +3,7 @@
 import { FormEvent, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import VZNAvatar from '@/components/ui/VZNAvatar'
+import AppShell from '@/components/AppShell'
 
 export default function OathPage() {
   const router = useRouter()
@@ -41,11 +42,13 @@ export default function OathPage() {
   }
 
   return (
-    <main className="grid min-h-screen place-items-center bg-[var(--bg-primary)] px-6 py-16 text-center">
-      <form onSubmit={submit} className="w-full max-w-[620px]">
+    <AppShell title="Founder Oath" subtitle="Make the commitment before execution starts.">
+      <div className="vzn-page-pad grid min-h-[calc(100vh-120px)] place-items-center text-center">
+      <form onSubmit={submit} className="vzn-panel-strong veixon-rise w-full max-w-[680px] rounded-[1.5rem] p-6 md:p-10">
         <VZNAvatar size="lg" className="mx-auto" />
-        <h1 className="mt-8 text-4xl font-bold">VZN has given you everything.</h1>
-        <p className="mt-3 text-lg" style={{ color: 'var(--text-muted)' }}>Now you make a commitment.</p>
+        <div className="vzn-section-label mt-7">Commitment Lock</div>
+        <h1 className="mt-3 text-3xl font-bold md:text-4xl">VZN has given you everything.</h1>
+        <p className="mt-3 text-base md:text-lg" style={{ color: 'var(--text-muted)' }}>Now you make a commitment.</p>
         <label className="mt-10 block text-left">
           <textarea
             value={oath}
@@ -53,19 +56,19 @@ export default function OathPage() {
             maxLength={200}
             placeholder="In one sentence - why will YOU specifically succeed where others have failed?"
             rows={5}
-            className="focus-ring w-full resize-none rounded-2xl border p-4 text-base"
-            style={{ background: 'var(--card-bg)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+            className="focus-ring vzn-input w-full resize-none rounded-2xl p-4 text-base"
           />
           <span className="mt-2 block text-right text-xs" style={{ color: 'var(--text-muted)' }}>{oath.length}/200</span>
         </label>
         {error && <p className="mt-3 text-sm text-[var(--amber)]">{error}</p>}
         <button
           disabled={saving}
-          className="mt-6 w-full rounded-xl bg-[var(--purple)] px-5 py-3.5 font-semibold text-white disabled:opacity-60"
+          className="vzn-button-primary mt-6 w-full rounded-xl px-5 py-3.5 font-semibold disabled:opacity-60"
         >
           {saving ? 'Committing…' : 'I commit.'}
         </button>
       </form>
-    </main>
+      </div>
+    </AppShell>
   )
 }

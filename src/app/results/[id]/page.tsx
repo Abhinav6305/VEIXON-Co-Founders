@@ -4,12 +4,13 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { AlertTriangle, Check, ChevronDown, ChevronRight, Download, Pencil, Share2 } from 'lucide-react'
+import { AlertTriangle, Check, ChevronDown, ChevronRight, Loader2, Pencil, Share2 } from 'lucide-react'
 import VZNAvatar from '@/components/ui/VZNAvatar'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import MarketIntelligenceDisplay from '@/app/components/results/MarketIntelligenceDisplay'
 import IdeaAlreadyExistsWarning from '@/app/components/results/IdeaAlreadyExistsWarning'
 import type { MarketIntelligence } from '@/lib/types'
+import AppShell from '@/components/AppShell'
 
 const scoreLabels: Record<string, string> = {
   market: 'Market',
@@ -80,7 +81,7 @@ function StressTestOverlay({ startupId, onDone }: { startupId: string; onDone: (
 
 function Scorecard({ data }: { data: any }) {
   return (
-    <motion.section initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl border p-6" style={{ background: 'var(--card-bg)', borderColor: 'var(--border)' }}>
+    <motion.section initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} className="vzn-panel-strong rounded-[1.5rem] p-6">
       <div className="mb-6 flex items-center justify-between gap-4">
         <div>
           <div className="text-xs font-semibold uppercase tracking-widest text-[var(--purple)]">Scorecard</div>
@@ -114,6 +115,8 @@ function Scorecard({ data }: { data: any }) {
 
 function FounderDNA({ startupId, startup }: { startupId: string; startup: any }) {
   const [dna, setDna] = useState<any>(startup.founderDNA || null)
+  const [sharing, setSharing] = useState(false)
+  const [shareError, setShareError] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -134,21 +137,29 @@ function FounderDNA({ startupId, startup }: { startupId: string; startup: any })
   }, [dna, startup, startupId])
 
   async function share() {
-    if (!ref.current) return
-    const html2canvas = (await import('html2canvas')).default
-    const canvas = await html2canvas(ref.current, { width: 1080, height: 1080, backgroundColor: null })
-    const link = document.createElement('a')
-    link.download = 'visionix-founder-dna.png'
-    link.href = canvas.toDataURL('image/png')
-    link.click()
-    await navigator.clipboard?.writeText(`VZN classified my founder DNA as ${dna?.founderType}. @VISIONIXFounders`)
+    if (!ref.current || sharing) return
+    setShareError(null)
+    setSharing(true)
+    try {
+      const html2canvas = (await import('html2canvas')).default
+      const canvas = await html2canvas(ref.current, { width: 1080, height: 1080, backgroundColor: null })
+      const link = document.createElement('a')
+      link.download = 'veixon-founder-dna.png'
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+      await navigator.clipboard?.writeText(`VZN classified my founder DNA as ${dna?.founderType}. VEIXON Co-founders, a product by @VEIXON Tech.`)
+    } catch {
+      setShareError('Could not generate the image. Try again.')
+    } finally {
+      setSharing(false)
+    }
   }
 
   if (!dna) return <LoadingSpinner label="VZN is reading your founder DNA..." />
 
   return (
-    <motion.section initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="rounded-2xl border p-6" style={{ background: 'var(--card-bg)', borderColor: 'var(--purple)', boxShadow: '0 0 60px var(--card-glow)' }}>
-      <div ref={ref} className="rounded-2xl p-6" style={{ background: 'var(--card-bg)' }}>
+    <motion.section initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="vzn-panel-strong rounded-[1.5rem] p-6">
+      <div ref={ref} className="vzn-panel rounded-2xl p-6">
         <div className="mb-6 flex items-center gap-3">
           <VZNAvatar size="sm" />
           <div>
@@ -172,9 +183,13 @@ function FounderDNA({ startupId, startup }: { startupId: string; startup: any })
         <p className="mt-6 font-medium">{dna.vznVerdict}</p>
         <p className="mt-2 text-sm text-[var(--amber)]">Warning: {dna.dangerLine}</p>
       </div>
-      <button onClick={share} className="mt-4 inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold" style={{ borderColor: 'var(--border)' }}>
-        <Share2 className="h-4 w-4" /> Share your DNA
-      </button>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <button onClick={share} disabled={sharing} className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-opacity disabled:cursor-not-allowed disabled:opacity-60" style={{ borderColor: 'var(--border)' }}>
+          {sharing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
+          {sharing ? 'Rendering image…' : 'Share your DNA'}
+        </button>
+        {shareError && <span className="text-xs font-medium text-[var(--red)]">{shareError}</span>}
+      </div>
     </motion.section>
   )
 }
@@ -197,8 +212,10 @@ function BrutalNumber({ probability, survivalEdge }: { probability: number; surv
   return (
     <section className="grid min-h-[80vh] place-items-center py-20 text-center">
       <div className="max-w-[760px]">
-        <div className="text-[72px] font-bold leading-none text-[var(--red)] md:text-[120px]">{value}%</div>
-        <p className="mt-5 text-2xl font-semibold">of startups with this exact profile fail within 8 months.</p>
+        <div className="font-mono text-[11px] uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Estimated risk · directional</div>
+        <div className="mt-2 text-[72px] font-bold leading-none text-[var(--red)] md:text-[120px]">~{value}%</div>
+        <p className="mt-5 text-2xl font-semibold">estimated failure risk for an idea at this stage if nothing changes.</p>
+        <p className="mt-2 text-sm" style={{ color: 'var(--text-muted)' }}>A model estimate from the framework + your inputs — a prioritisation signal, not a measured statistic. Verify before quoting it anywhere.</p>
         <div className="mx-auto my-8 h-px max-w-[280px]" style={{ background: 'var(--border)' }} />
         <p className="leading-relaxed" style={{ color: 'var(--text-muted)' }}>{survivalEdge}</p>
         <a href="#war-plan" className="mt-8 inline-flex rounded-xl bg-[var(--purple)] px-6 py-3 font-semibold text-white">
@@ -238,7 +255,7 @@ function WarPlan({ startupId, missions = [] }: { startupId: string; missions: an
   }
 
   return (
-    <section id="war-plan" className="scroll-mt-24 rounded-2xl border p-6" style={{ background: 'var(--card-bg)', borderColor: 'var(--border)' }}>
+    <section id="war-plan" className="vzn-panel-strong scroll-mt-24 rounded-[1.5rem] p-6">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="text-xs font-semibold uppercase tracking-widest text-[var(--purple)]">90-Day War Plan</div>
@@ -373,25 +390,33 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
 
   if (error) {
     return (
-      <main className="grid min-h-screen place-items-center bg-[var(--bg-primary)] px-6 text-center">
-        <div>
+      <AppShell title="AI Co-Founder Report" subtitle="Startup analysis">
+        <div className="vzn-page-pad grid min-h-[calc(100vh-120px)] place-items-center text-center">
+        <div className="vzn-panel rounded-[1.5rem] p-8">
           <VZNAvatar size="lg" className="mx-auto mb-6" />
           <p style={{ color: 'var(--text-muted)' }}>{error}</p>
         </div>
-      </main>
+        </div>
+      </AppShell>
     )
   }
 
   if (!startup) {
     return (
-      <main className="grid min-h-screen place-items-center bg-[var(--bg-primary)]">
-        <LoadingSpinner label="VZN is thinking... try again if this stalls." />
-      </main>
+      <AppShell title="AI Co-Founder Report" subtitle="Startup analysis">
+        <div className="vzn-page-pad grid min-h-[calc(100vh-120px)] place-items-center">
+          <LoadingSpinner label="VZN is thinking... try again if this stalls." />
+        </div>
+      </AppShell>
     )
   }
 
   return (
-    <main className="min-h-screen bg-[var(--bg-primary)] px-6 py-10 text-[var(--text-primary)]">
+    <AppShell
+      title="AI Co-Founder Report"
+      subtitle="Scorecard, market intelligence, founder DNA, and war plan."
+      actions={<Link href="/dashboard" className="vzn-button-ghost rounded-xl border px-4 py-2 text-sm font-semibold">Dashboard</Link>}
+    >
       {!stressDone && <StressTestOverlay startupId={startup.id} onDone={() => setStressDone(true)} />}
       {showIdeasExistsWarning && marketIntelligence && (
         <IdeaAlreadyExistsWarning
@@ -400,10 +425,10 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
           onContinue={() => setShowIdeaExistsWarning(false)}
         />
       )}
-      <div className="mx-auto max-w-6xl space-y-8">
-        <Link href="/dashboard" className="text-sm" style={{ color: 'var(--text-muted)' }}>Dashboard</Link>
-        <section className="max-w-4xl">
-          <div className="text-xs font-semibold uppercase tracking-widest text-[var(--purple)]">Your AI co-founder report</div>
+      <div className="vzn-page-pad">
+      <div className="vzn-page-center space-y-8">
+        <section className="vzn-panel-strong rounded-[1.5rem] p-6 md:p-8">
+          <div className="vzn-section-label">Your AI co-founder report</div>
           <h1 className="mt-2 text-3xl font-bold md:text-5xl">{startup.ideaText}</h1>
           <p className="mt-4 text-lg" style={{ color: 'var(--text-muted)' }}>{startup.targetCustomer} · {startup.problem}</p>
         </section>
@@ -411,7 +436,7 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
         {marketIntelligenceLoaded && marketIntelligence && (
           <MarketIntelligenceDisplay data={marketIntelligence} />
         )}
-        <section className="rounded-2xl border p-6" style={{ background: 'var(--card-bg)', borderColor: 'var(--border)' }}>
+        <section className="vzn-panel rounded-[1.5rem] p-6">
           <div className="mb-4 flex items-center gap-3 text-[var(--amber)]">
             <AlertTriangle className="h-5 w-5" />
             <span className="text-xs font-semibold uppercase tracking-widest">Devil&apos;s Advocate</span>
@@ -429,6 +454,7 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
         <BrutalNumber probability={startup.failureProbability || 72} survivalEdge={startup.survivalEdge || ''} />
         <WarPlan startupId={startup.id} missions={startup.warPlanJson || []} />
       </div>
-    </main>
+      </div>
+    </AppShell>
   )
 }

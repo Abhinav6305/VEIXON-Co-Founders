@@ -2,32 +2,54 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import VZNAvatar from './VZNAvatar'
 
+// Module-level cache so route changes don't refetch the dashboard on every
+// navigation. Keyed by user; refreshed at most once per TTL.
+let cache: { userId: string; days: number | null; at: number } | null = null
+const TTL = 5 * 60 * 1000 // 5 minutes
+
+function runwayFromStartup(startup: any): number | null {
+  if (!startup) return null
+  const burn = Number(startup.burnRate || 0)
+  const revenue = Number(startup.monthlyRevenue || 0)
+  const cash = Number(startup.cashInBank || 0)
+  const netBurn = Math.max(burn - revenue, 0)
+  const runway = netBurn > 0 ? Math.floor((cash / netBurn) * 30) : null
+  return runway && runway < 30 ? runway : null
+}
+
 export default function EmergencyRunwayBanner() {
   const { data: session } = useSession()
-  const pathname = usePathname()
-  const [days, setDays] = useState<number | null>(null)
+  const [days, setDays] = useState<number | null>(cache?.days ?? null)
+
+  const userId = (session?.user as any)?.id || session?.user?.email || ''
 
   useEffect(() => {
-    if (!session?.user?.id && !session?.user?.email) return
-    const userId = session.user.id || session.user.email
-    fetch(`/api/dashboard?userId=${encodeURIComponent(userId || '')}`)
+    if (!userId) return
+
+    // Serve from cache while it is fresh — avoids a fetch on every route change.
+    if (cache && cache.userId === userId && Date.now() - cache.at < TTL) {
+      setDays(cache.days)
+      return
+    }
+
+    let active = true
+    fetch('/api/dashboard')
       .then((res) => res.json())
       .then((data) => {
-        const startup = data.startup
-        if (!startup) return
-        const burn = Number(startup.burnRate || 0)
-        const revenue = Number(startup.monthlyRevenue || 0)
-        const cash = Number(startup.cashInBank || 0)
-        const netBurn = Math.max(burn - revenue, 0)
-        const runway = netBurn > 0 ? Math.floor((cash / netBurn) * 30) : null
-        setDays(runway && runway < 30 ? runway : null)
+        const runway = runwayFromStartup(data?.startup)
+        cache = { userId, days: runway, at: Date.now() }
+        if (active) setDays(runway)
       })
-      .catch(() => setDays(null))
-  }, [session?.user?.email, session?.user?.id, pathname])
+      .catch(() => {
+        if (active) setDays(null)
+      })
+    return () => {
+      active = false
+    }
+  }, [userId])
 
   if (!days) return null
 

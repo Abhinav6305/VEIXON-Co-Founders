@@ -1,5 +1,6 @@
 // AI Gateway — application layer. Model routing + reliability (retry/fallback/circuit-breaker)
 // + usage metering + optional cache. This is the only thing the rest of the app calls.
+import type { ZodSchema } from 'zod'
 import { allProviders, extractJson, getProvider } from './providers'
 import { AiError, type ChatOptions, type ChatRequest, type ChatResult, type ProviderName, type Tier, type UsageEvent } from './types'
 
@@ -115,6 +116,44 @@ export async function chatJson<T>(req: ChatRequest, opts?: ChatOptions): Promise
   } catch {
     throw new AiError('Model did not return valid JSON', 'bad_json', res.provider)
   }
+}
+
+function parseWith<T>(schema: ZodSchema<T>, text: string): { ok: true; value: T } | { ok: false; error: string } {
+  let json: unknown
+  try {
+    json = JSON.parse(extractJson(text))
+  } catch {
+    return { ok: false, error: 'response was not valid JSON' }
+  }
+  const res = schema.safeParse(json)
+  if (res.success) return { ok: true, value: res.data }
+  return { ok: false, error: res.error.issues.map((i) => `${i.path.join('.') || 'root'}: ${i.message}`).slice(0, 5).join('; ') }
+}
+
+/**
+ * Schema-validated JSON call. Validates the model output against a Zod contract;
+ * on failure it asks the model to repair its JSON once, and if that still fails it
+ * throws `schema_invalid` so the calling route can fall back deterministically.
+ * No malformed JSON ever reaches a user.
+ */
+export async function chatJsonSafe<T>(schema: ZodSchema<T>, req: ChatRequest, opts?: ChatOptions): Promise<T> {
+  const first = await chat({ ...req, json: true }, opts)
+  const a = parseWith(schema, first.text) as ({ ok: true; value: T } | { ok: false; error: string }) & { error?: string }
+  if (a.ok) return a.value
+
+  const repair: ChatRequest = {
+    ...req,
+    json: true,
+    messages: [
+      ...req.messages,
+      { role: 'assistant', content: first.text.slice(0, 4000) },
+      { role: 'user', content: `Your previous reply failed validation (${a.error}). Reply again with ONLY corrected JSON that matches the required schema exactly — no prose, no markdown.` },
+    ],
+  }
+  const second = await chat(repair, { ...opts, retries: 0 })
+  const b = parseWith(schema, second.text) as ({ ok: true; value: T } | { ok: false; error: string }) & { error?: string }
+  if (b.ok) return b.value
+  throw new AiError(`AI output failed schema validation: ${b.error}`, 'schema_invalid', second.provider)
 }
 
 export function listConfiguredProviders(): ProviderName[] {

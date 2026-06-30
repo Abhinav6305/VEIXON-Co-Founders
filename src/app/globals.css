@@ -4,26 +4,31 @@
 
 :root {
   --font-inter: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  --bg-primary: #0D0D0F;
-  --bg-secondary: #141418;
-  --bg-tertiary: #0A0A0C;
-  --border: #2A2A35;
-  --text-primary: #F5F5F5;
-  --text-muted: #888888;
-  --purple: #534AB7;
-  --purple-dim: #2A2560;
-  --purple-light: #EEEDFE;
-  --teal: #0F6E56;
-  --amber: #EF9F27;
-  --red: #DC2626;
-  --card-bg: #141418;
-  --card-glow: rgba(83, 74, 183, 0.15);
-  --nav-bg: rgba(13, 13, 15, 0.85);
-  --canvas-bg: #0D0D0F;
-  --canvas-grid: #2A2A35;
-  --canvas-fog: #0D0D0F;
-  --canvas-particle: #534AB7;
-  --radius: 0.5rem;
+  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
+  /* Mission-control redesign palette */
+  --bg-primary: #08080D;
+  --bg-secondary: #11111A;
+  --bg-tertiary: #0C0C13;
+  --border: #33334A;
+  --border-strong: #45455C;
+  --text-primary: #F4F5FA;
+  --text-muted: #8E8EA6;
+  --text-dim: #5C5C70;
+  --purple: #6D5DF6;
+  --purple-dim: #2E2A66;
+  --purple-light: #CBC4FF;
+  --teal: #2DD4BF;
+  --amber: #F5A524;
+  --red: #F2585B;
+  --card-bg: rgba(21, 22, 35, 0.55);
+  --card-solid: #12121C;
+  --card-glow: rgba(109, 93, 246, 0.18);
+  --nav-bg: rgba(8, 8, 13, 0.78);
+  --canvas-bg: #08080D;
+  --canvas-grid: #23232F;
+  --canvas-fog: #08080D;
+  --canvas-particle: #6D5DF6;
+  --radius: 0.875rem;
 }
 
 * {
@@ -161,3 +166,331 @@ button {
 @keyframes veixon-tw{0%,100%{opacity:.2;transform:scale(.6)}50%{opacity:1;transform:scale(1)}}
 html.dark .veixon-spark{display:block}
 html:not(.dark) .veixon-spark{display:none}
+
+
+/* inner-app ambient aurora */
+@keyframes veixon-float1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(8%,6%) scale(1.12)}}
+@keyframes veixon-float2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-7%,-9%) scale(1.18)}}
+
+/* ---- reusable interaction utilities (apply across every inner page) ---- */
+/* hover-lift: cards rise + glow + purple border on hover */
+.veixon-lift{transition:transform .28s cubic-bezier(.22,1,.36,1),border-color .28s ease,box-shadow .28s ease}
+.veixon-lift:hover{transform:translateY(-4px);border-color:color-mix(in srgb,var(--purple) 55%,var(--border))!important;box-shadow:0 18px 50px -22px color-mix(in srgb,var(--purple) 55%,transparent)}
+/* staggered entrance: add .veixon-rise and set --d via inline style for the delay */
+@keyframes veixon-rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+.veixon-rise{animation:veixon-rise .6s cubic-bezier(.22,1,.36,1) both;animation-delay:var(--d,0s)}
+/* press feedback for clickable tiles */
+.veixon-press{transition:transform .12s ease}
+.veixon-press:active{transform:scale(.97)}
+@media (prefers-reduced-motion: reduce){
+  .veixon-rise{animation:none}
+  .veixon-lift:hover{transform:none}
+  .veixon-tilt{transform:none!important}
+}
+
+/* ---- 3D tilt + pointer spotlight card (premium interactive surface) ---- */
+.veixon-tilt{position:relative;transform-style:preserve-3d;will-change:transform;
+  transform:perspective(900px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));
+  transition:transform .18s ease, border-color .25s ease, box-shadow .25s ease}
+.veixon-tilt:hover{border-color:color-mix(in srgb,var(--purple) 45%,var(--border))!important;
+  box-shadow:0 26px 70px -34px color-mix(in srgb,var(--purple) 60%,transparent)}
+.veixon-tilt-glow{position:absolute;inset:0;border-radius:inherit;opacity:0;pointer-events:none;transition:opacity .3s ease;
+  background:radial-gradient(440px circle at var(--mx,50%) var(--my,50%), color-mix(in srgb,var(--purple) 20%, transparent), transparent 60%)}
+.veixon-tilt:hover .veixon-tilt-glow{opacity:1}
+
+/* ---- shimmer skeletons ---- */
+@keyframes veixon-shimmer{100%{background-position:-200% 0}}
+.veixon-skeleton{border-radius:10px;
+  background:linear-gradient(90deg, color-mix(in srgb,var(--text-primary) 6%, transparent) 25%, color-mix(in srgb,var(--text-primary) 13%, transparent) 37%, color-mix(in srgb,var(--text-primary) 6%, transparent) 63%);
+  background-size:200% 100%;animation:veixon-shimmer 1.4s ease-in-out infinite}
+
+/* ---- refined glass surface ---- */
+.veixon-glass{background:color-mix(in srgb, var(--card-bg) 78%, transparent);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+
+/* ---- soft pulsing glow for live/AI accents ---- */
+@keyframes veixon-pulse{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:1;transform:scale(1.15)}}
+.veixon-pulse{animation:veixon-pulse 2.2s ease-in-out infinite}
+
+/* ====================================================================== */
+/* GLASSMORPHISM — frost every surface that uses the translucent card token */
+/* ====================================================================== */
+[style*="--card-bg"]{
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
+  backdrop-filter: blur(16px) saturate(120%);
+}
+/* explicit glass container class (frost + light edge + depth) */
+.veixon-glass{
+  background: var(--card-bg);
+  -webkit-backdrop-filter: blur(18px) saturate(120%);
+  backdrop-filter: blur(18px) saturate(120%);
+  border: 1px solid color-mix(in srgb, #ffffff 9%, transparent);
+  box-shadow: 0 12px 44px -22px rgba(0,0,0,.65), inset 0 1px 0 color-mix(in srgb, #ffffff 7%, transparent);
+}
+
+/* ---- scroll-driven reveals: cards animate in as they enter the viewport ---- */
+@supports (animation-timeline: view()){
+  @media (prefers-reduced-motion: no-preference){
+    .veixon-rise{
+      animation-name: veixon-rise;
+      animation-timeline: view();
+      animation-range: entry 2% cover 18%;
+      animation-fill-mode: both;
+      animation-delay: 0s;
+    }
+  }
+}
+
+/* ---- internal product OS: glass, transitions, and responsive app surfaces ---- */
+@keyframes vzn-shell-scan {
+  0% { transform: translateX(-120%); opacity: 0; }
+  18% { opacity: .85; }
+  100% { transform: translateX(120%); opacity: 0; }
+}
+
+@keyframes vzn-orbit {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(4%, -3%, 0) scale(1.06); }
+}
+
+@keyframes vzn-panel-in {
+  from { opacity: 0; transform: translateY(18px) scale(.985); filter: blur(10px); }
+  to { opacity: 1; transform: none; filter: blur(0); }
+}
+
+.vzn-app-shell {
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 12% -10%, color-mix(in srgb, var(--purple) 18%, transparent), transparent 34%),
+    radial-gradient(circle at 88% 8%, color-mix(in srgb, var(--teal) 12%, transparent), transparent 28%),
+    var(--bg-primary);
+}
+
+.vzn-shell-header {
+  position: sticky;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--border) 86%, transparent);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--purple) 8%, transparent), transparent 28%, color-mix(in srgb, var(--teal) 5%, transparent)),
+    color-mix(in srgb, var(--bg-primary) 68%, transparent);
+  -webkit-backdrop-filter: blur(22px) saturate(138%);
+  backdrop-filter: blur(22px) saturate(138%);
+  box-shadow: 0 20px 70px -55px color-mix(in srgb, var(--purple) 70%, transparent);
+}
+
+.vzn-shell-header::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--purple) 72%, transparent), color-mix(in srgb, var(--teal) 68%, transparent), transparent);
+  animation: vzn-shell-scan 5.8s ease-in-out infinite;
+}
+
+.vzn-header-accent {
+  background: linear-gradient(180deg, var(--purple), var(--teal));
+  box-shadow: 0 0 22px color-mix(in srgb, var(--purple) 70%, transparent);
+}
+
+.vzn-route-stage {
+  position: relative;
+  min-height: calc(100vh - 72px);
+  isolation: isolate;
+}
+
+.vzn-route-stage::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 240px;
+  pointer-events: none;
+  background: radial-gradient(70% 70% at 50% 0%, color-mix(in srgb, var(--purple) 13%, transparent), transparent 72%);
+  z-index: -1;
+}
+
+.vzn-page-pad {
+  width: 100%;
+  padding: clamp(1rem, 2.4vw, 2rem);
+}
+
+.vzn-page-center {
+  margin-inline: auto;
+  width: min(100%, 72rem);
+}
+
+.vzn-grid-dashboard {
+  display: grid;
+  gap: clamp(1rem, 2vw, 1.5rem);
+}
+
+.vzn-panel,
+.vzn-panel-strong {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, #fff 8%);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, #fff 7%, transparent), transparent 34%),
+    color-mix(in srgb, var(--card-bg) 90%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(135%);
+  backdrop-filter: blur(20px) saturate(135%);
+  box-shadow:
+    0 28px 90px -62px color-mix(in srgb, var(--purple) 70%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #fff 10%, transparent);
+}
+
+.vzn-panel-strong {
+  border-color: color-mix(in srgb, var(--purple) 34%, var(--border));
+  background:
+    radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--purple) 16%, transparent), transparent 35%),
+    radial-gradient(circle at 90% 12%, color-mix(in srgb, var(--teal) 9%, transparent), transparent 34%),
+    color-mix(in srgb, var(--card-bg) 94%, transparent);
+}
+
+.vzn-panel::before,
+.vzn-panel-strong::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(120deg, transparent 0%, color-mix(in srgb, #fff 9%, transparent) 18%, transparent 36%),
+    radial-gradient(600px circle at var(--mx, 70%) var(--my, 0%), color-mix(in srgb, var(--purple) 9%, transparent), transparent 54%);
+  opacity: .52;
+}
+
+.vzn-panel > *,
+.vzn-panel-strong > * {
+  position: relative;
+  z-index: 1;
+}
+
+.vzn-panel:hover,
+.vzn-panel-strong:hover {
+  border-color: color-mix(in srgb, var(--purple) 52%, var(--border));
+  box-shadow:
+    0 30px 95px -58px color-mix(in srgb, var(--purple) 80%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #fff 12%, transparent);
+}
+
+.vzn-orb {
+  position: absolute;
+  border-radius: 999px;
+  pointer-events: none;
+  filter: blur(34px);
+  opacity: .5;
+  animation: vzn-orbit 13s ease-in-out infinite;
+}
+
+.vzn-section-label {
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--purple-light);
+}
+
+.vzn-input {
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+  background: color-mix(in srgb, var(--bg-secondary) 82%, transparent);
+  color: var(--text-primary);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 5%, transparent);
+  transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+}
+
+.vzn-input:focus {
+  border-color: color-mix(in srgb, var(--purple) 72%, var(--border));
+  background: color-mix(in srgb, var(--bg-secondary) 92%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--purple) 18%, transparent), inset 0 1px 0 color-mix(in srgb, #fff 7%, transparent);
+  outline: none;
+}
+
+.vzn-button-primary,
+.vzn-button-ghost,
+.vzn-icon-button {
+  position: relative;
+  overflow: hidden;
+  transition: transform .16s ease, border-color .2s ease, box-shadow .2s ease, background .2s ease, opacity .2s ease;
+}
+
+.vzn-button-primary {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--purple-light) 20%, transparent), transparent 32%),
+    linear-gradient(135deg, var(--purple), color-mix(in srgb, var(--teal) 38%, var(--purple)));
+  color: #fff;
+  box-shadow: 0 18px 44px -24px color-mix(in srgb, var(--purple) 95%, transparent);
+}
+
+.vzn-button-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 24px 54px -26px color-mix(in srgb, var(--purple) 100%, transparent);
+}
+
+.vzn-button-ghost,
+.vzn-icon-button {
+  border-color: color-mix(in srgb, var(--border) 86%, transparent);
+  background: color-mix(in srgb, var(--card-bg) 66%, transparent);
+  color: var(--text-primary);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+.vzn-button-ghost:hover,
+.vzn-icon-button:hover {
+  border-color: color-mix(in srgb, var(--purple) 52%, var(--border));
+  background: color-mix(in srgb, var(--purple) 10%, var(--card-bg));
+}
+
+.vzn-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 999px;
+  padding: .38rem .7rem;
+  background: color-mix(in srgb, var(--card-bg) 70%, transparent);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.vzn-stagger > * {
+  animation: vzn-panel-in .58s cubic-bezier(.22, 1, .36, 1) both;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+
+.vzn-skeleton-card {
+  min-height: 11rem;
+  border-radius: 1.25rem;
+  border: 1px solid var(--border);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--text-primary) 4%, transparent), color-mix(in srgb, var(--text-primary) 10%, transparent), color-mix(in srgb, var(--text-primary) 4%, transparent)),
+    color-mix(in srgb, var(--card-bg) 82%, transparent);
+  background-size: 220% 100%;
+  animation: veixon-shimmer 1.6s ease-in-out infinite;
+}
+
+@media (max-width: 767px) {
+  .vzn-shell-header {
+    min-height: 68px;
+  }
+
+  .vzn-page-pad {
+    padding: 1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vzn-shell-header::after,
+  .vzn-orb,
+  .vzn-stagger > *,
+  .vzn-skeleton-card {
+    animation: none;
+  }
+
+  .vzn-button-primary:hover {
+    transform: none;
+  }
+}

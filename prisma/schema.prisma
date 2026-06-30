@@ -10,6 +10,9 @@ generator client {
 model Startup {
   id                 String   @id @default(cuid())
   userId             String
+  orgId              String?
+  cohortId           String?
+  founderEmail       String?
   ideaText           String?
   targetCustomer     String?
   problem            String?
@@ -53,10 +56,87 @@ model Startup {
   workspaces         Workspace[]
   decisions          Decision[]
 
+  org                Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  cohort             Cohort?       @relation(fields: [cohortId], references: [id], onDelete: SetNull)
+
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
   @@index([userId])
+  @@index([orgId])
+  @@index([cohortId])
+}
+
+// ============================ Multi-tenancy (Phase 2) ============================
+// Institutions (incubators / e-cells) own cohorts of founders. Every founder row
+// can be scoped to an org so cohort-level rollups and tenant isolation are possible.
+model Organization {
+  id          String         @id @default(cuid())
+  name        String
+  slug        String         @unique
+  cohorts     Cohort[]
+  memberships Membership[]
+  startups    Startup[]
+  events      FounderEvent[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model Cohort {
+  id        String       @id @default(cuid())
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId     String
+  name      String
+  startDate DateTime?
+  startups  Startup[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@index([orgId])
+}
+
+// RBAC: founder | mentor | admin | superadmin (string — SQLite has no enums).
+model Membership {
+  id        String       @id @default(cuid())
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId     String
+  userId    String
+  role      String       @default("founder")
+  createdAt DateTime     @default(now())
+
+  @@unique([orgId, userId])
+  @@index([userId])
+}
+
+// ===================== Proprietary execution data engine (Phase 4) =====================
+// Append-only stream of founder execution events — the compounding, defensible asset.
+model FounderEvent {
+  id        String        @id @default(cuid())
+  org       Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  orgId     String?
+  cohortId  String?
+  startupId String?
+  userId    String?
+  type      String        // idea_submitted | task_completed | task_dodged | checkin | pivot_flag | day_return | decision | vault_unlock
+  payload   String?       // JSON string
+  createdAt DateTime      @default(now())
+
+  @@index([orgId, type])
+  @@index([startupId])
+  @@index([type, createdAt])
+}
+
+// Transactional email log — drives idempotency (send-once emails) + an audit trail.
+model EmailLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  email     String
+  type      String   // welcome | analysis_report | decision | inactivity_warning
+  refId     String?  // startupId | decisionId | yyyy-mm-dd
+  sentAt    DateTime @default(now())
+
+  @@index([email, type])
+  @@index([userId, type])
 }
 
 model CompletedTask {
@@ -221,17 +301,30 @@ model Checkin {
 // Decision
 model Decision {
   id             String   @id @default(cuid())
+
+  // Fields written by /api/ai/decision (the live shape).
+  userId         String?
+  description    String?
+  decisionType   String?
+  scenariosJson  String?  // JSON: { bestCase, worstCase, mostLikely }
+  recommendation String?
+  reasoning      String?
+  vznVoice       String?
+
+  // Legacy columns kept optional for back-compat with older rows.
   context        String?
-  optionsJson    String?  // JSON string
+  optionsJson    String?
   vznVerdict     String?
-  
-  startup        Startup  @relation(fields: [startupId], references: [id], onDelete: Cascade)
-  startupId      String
-  
+
+  // startupId optional so anonymous / pre-startup decisions can still persist.
+  startup        Startup? @relation(fields: [startupId], references: [id], onDelete: Cascade)
+  startupId      String?
+
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   @@index([startupId])
+  @@index([userId])
 }
 
 // Builder AI Models

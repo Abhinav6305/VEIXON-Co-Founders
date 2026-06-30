@@ -31,6 +31,8 @@ function AuthCard() {
   const { status } = useSession()
   const error = params.get('error')
   const [fromUnlock, setFromUnlock] = useState(false)
+  const googleBlockedLocally = error === 'OAuthSignin' || error === 'OAuthCallback'
+  const errorMessage = 'Google sign-in failed. Please try again.'
 
   useEffect(() => {
     if (status === 'authenticated') router.replace('/routing')
@@ -45,8 +47,7 @@ function AuthCard() {
       initial={{ opacity: 0, y: 30, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
-      className="relative z-10 w-full max-w-[400px] rounded-2xl border p-10 text-center"
-      style={{ background: 'var(--card-bg)', borderColor: 'var(--border)', boxShadow: '0 0 80px var(--card-glow)' }}
+      className="vzn-panel-strong relative z-10 w-full max-w-[420px] rounded-[1.5rem] p-8 text-center md:p-10"
     >
       <VZNAvatar size="lg" className="mx-auto mb-6" />
       <h1 className="text-xl font-semibold">{fromUnlock ? 'Unlock your full war plan' : 'VEIXON Co-founders'}</h1>
@@ -55,15 +56,22 @@ function AuthCard() {
       </p>
       <div className="my-8 h-px w-full" style={{ background: 'var(--border)' }} />
       {error && (
-        <div className="mb-5 rounded-xl border px-4 py-3 text-left text-sm text-[var(--amber)]" style={{ borderColor: 'var(--amber)', background: 'color-mix(in srgb, var(--amber) 10%, transparent)' }}>
-          Google sign-in failed. Check OAuth credentials and try again.
+        <div
+          className="mb-5 rounded-xl border px-4 py-3 text-left text-sm"
+          style={{
+            borderColor: googleBlockedLocally ? 'var(--purple)' : 'var(--amber)',
+            background: googleBlockedLocally ? 'color-mix(in srgb, var(--purple) 8%, transparent)' : 'color-mix(in srgb, var(--amber) 10%, transparent)',
+            color: googleBlockedLocally ? 'var(--text-secondary)' : 'var(--amber)',
+          }}
+        >
+          {errorMessage}
         </div>
       )}
       <button
         type="button"
         onClick={() => signIn('google', { callbackUrl: '/routing' })}
-        className="focus-ring flex w-full items-center justify-center gap-3 rounded-xl border px-4 py-3 font-medium transition-all hover:border-[var(--purple)] hover:bg-[color-mix(in_srgb,var(--purple)_5%,transparent)]"
-        style={{ background: 'var(--card-bg)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+        className="focus-ring flex w-full items-center justify-center gap-3 rounded-xl px-4 py-3 font-medium"
+        style={{ color: 'white', background: 'var(--purple)', boxShadow: '0 16px 40px color-mix(in srgb, var(--purple) 24%, transparent)' }}
       >
         <GoogleIcon />
         Continue with Google
@@ -79,7 +87,7 @@ function AuthCard() {
 
 export default function AuthPage() {
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--bg-primary)] px-6">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--bg-primary)] px-6 py-10">
       <div className="fixed inset-0 z-0 opacity-80">
         <AuthCanvas />
       </div>

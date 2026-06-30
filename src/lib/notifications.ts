@@ -46,7 +46,6 @@ export async function sendPushNotification(
           badge: '/vzn-badge-72.png',
           requireInteraction: true,
           tag: payload.tag,
-          // @ts-expect-error: actions is valid in webpush spec but not in firebase-admin types
           actions: [
             { action: 'open', title: 'Open VISIONIX' },
             { action: 'dismiss', title: 'Dismiss' },

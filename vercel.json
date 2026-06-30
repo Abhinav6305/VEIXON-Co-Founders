@@ -1,6 +1,8 @@
 {
-  "crons": [{
-    "path": "/api/cron/monday-missile",
-    "schedule": "0 0 30 * * 1"
-  }]
+  "crons": [
+    {
+      "path": "/api/cron/inactivity-check",
+      "schedule": "0 4 * * *"
+    }
+  ]
 }

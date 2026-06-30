@@ -3,14 +3,13 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { motion } from 'framer-motion'
-import { ArrowLeft, Lock, Unlock, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Lock } from 'lucide-react'
 import Link from 'next/link'
 import VZNAvatar from '@/components/ui/VZNAvatar'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import AppShell from '@/components/AppShell'
 import { getWeek } from '@/lib/constants/ninetyDayPlan'
 
-// Build a mission object from the 90-day curriculum when the AI hasn't personalized warPlanJson yet.
 function buildSeedMission(week: number) {
   const days = getWeek(week)
   if (!days.length) return null
@@ -36,7 +35,7 @@ interface WarPlanWeekPageProps {
 
 export default function WarPlanWeekPage({ params }: WarPlanWeekPageProps) {
   const router = useRouter()
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const week = parseInt(params.week)
 
   const [startup, setStartup] = useState<any>(null)
@@ -48,6 +47,10 @@ export default function WarPlanWeekPage({ params }: WarPlanWeekPageProps) {
   const userId = user?.id || user?.email
 
   useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.replace('/auth')
+      return
+    }
     if (!session || !userId) return
 
     const startupId = window.localStorage.getItem('visionix_active_startup_id')
@@ -63,204 +66,197 @@ export default function WarPlanWeekPage({ params }: WarPlanWeekPageProps) {
         const warMission = data.warPlanJson?.find((m: any) => m.week === week)
         setMission(warMission || buildSeedMission(week))
 
-        // Get week analysis if available
-        if (data.weekAnalyses) {
-          const analysis = data.weekAnalyses.find((a: any) => a.week === week)
-          setWeekAnalysis(analysis)
-        }
+        const analysis = data.weekAnalyses?.find((a: any) => a.week === week)
+        setWeekAnalysis(analysis || null)
       })
       .catch((err) => console.error('Error fetching startup:', err))
       .finally(() => setLoading(false))
-  }, [session, userId, week, router])
+  }, [session, status, userId, week, router])
 
   if (loading) {
     return (
-      <main className="grid min-h-screen place-items-center bg-[var(--bg-primary)]">
-        <LoadingSpinner label="Loading week..." />
-      </main>
+      <AppShell title="90-Day War Plan" subtitle={`Week ${week}`}>
+        <div className="vzn-page-pad grid min-h-[calc(100vh-120px)] place-items-center">
+          <LoadingSpinner label="Loading week..." />
+        </div>
+      </AppShell>
     )
   }
 
   if (!mission) {
     return (
-      <main className="grid min-h-screen place-items-center bg-[var(--bg-primary)]">
-        <div className="text-center">
-          <VZNAvatar size="lg" className="mx-auto mb-6" />
-          <p className="text-[var(--text-muted)]">Week not found</p>
+      <AppShell title="90-Day War Plan" subtitle={`Week ${week}`}>
+        <div className="vzn-page-pad grid min-h-[calc(100vh-120px)] place-items-center">
+          <div className="vzn-panel rounded-[1.5rem] p-8 text-center">
+            <VZNAvatar size="lg" className="mx-auto mb-6" />
+            <p className="text-[var(--text-muted)]">Week not found</p>
+          </div>
         </div>
-      </main>
+      </AppShell>
     )
   }
 
-  const weekCompletion = mission.dailyTasks
-    ? Math.round(
-        (mission.dailyTasks.filter((t: any) => {
-          const debrief = startup.dayDebriefs?.find((d: any) => d.week === week && d.day === t.day)
-          return debrief?.completedAt
-        }).length / mission.dailyTasks.length) *
-          100
-      )
-    : 0
-
-  const isWeekLocked = week > 1 && !startup.weekUnlockStatus?.find((w: any) => w.week === week - 1)?.unlocked
+  const dailyTasks = mission.dailyTasks || []
+  const completedCount = dailyTasks.filter((task: any) => {
+    const debrief = startup?.dayDebriefs?.find((d: any) => d.week === week && d.day === task.day)
+    return debrief?.completedAt
+  }).length
+  const weekCompletion = dailyTasks.length ? Math.round((completedCount / dailyTasks.length) * 100) : 0
+  const hasUnlockData = Array.isArray(startup?.weekUnlockStatus)
+  const previousWeek = startup?.weekUnlockStatus?.find((w: any) => w.week === week - 1)
+  const isWeekLocked = hasUnlockData && week > 1 && !previousWeek?.unlocked
 
   return (
-    <main className="min-h-screen bg-[var(--bg-primary)] px-6 py-10 text-[var(--text-primary)]">
-      {/* Week Header */}
-      <div className="mb-8 max-w-6xl mx-auto">
-        <button onClick={() => router.back()} className="text-[var(--text-muted)] hover:text-white mb-4">
-          <ArrowLeft size={24} />
+    <AppShell
+      title={`Week ${week}: ${mission.missionName}`}
+      subtitle={mission.missionCode}
+      actions={
+        <button onClick={() => router.back()} className="vzn-button-ghost hidden rounded-xl border px-4 py-2 text-sm font-semibold md:inline-flex">
+          <ArrowLeft size={16} /> Back
         </button>
+      }
+    >
+      <div className="vzn-page-pad">
+        <div className="vzn-page-center space-y-8">
+          <button onClick={() => router.back()} className="vzn-button-ghost inline-flex rounded-xl border p-3 text-[var(--text-muted)] md:hidden" aria-label="Back">
+            <ArrowLeft size={20} />
+          </button>
 
-        <div className="rounded-2xl border p-6 bg-[var(--card-bg)] border-[var(--border)]">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-widest text-[var(--amber)]">{mission.missionCode}</div>
-              <h1 className="mt-2 text-3xl font-bold md:text-4xl">{mission.missionName}</h1>
-              <p className="mt-3 text-[var(--text-muted)]">{mission.primaryObjective}</p>
-            </div>
-            <div className="relative w-24 h-24">
-              <svg className="absolute w-full h-full -rotate-90">
-                <circle cx="48" cy="48" r="40" fill="none" stroke="var(--border)" strokeWidth="4" />
-                <circle
-                  cx="48"
-                  cy="48"
-                  r="40"
-                  fill="none"
-                  stroke="var(--purple)"
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                  strokeDasharray={`${(weekCompletion / 100) * 251.2} 251.2`}
-                />
-              </svg>
-              <div className="absolute inset-0 grid place-items-center">
-                <div className="text-center">
-                  <div className="text-2xl font-bold">{weekCompletion}%</div>
-                  <div className="text-xs text-[var(--text-muted)]">Complete</div>
+          <section className="vzn-panel-strong rounded-[1.5rem] p-6 md:p-8">
+            <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+              <div className="max-w-3xl">
+                <div className="vzn-section-label text-[var(--amber)]">{mission.missionCode}</div>
+                <h1 className="mt-2 text-3xl font-bold md:text-5xl">{mission.missionName}</h1>
+                <p className="mt-4 text-[var(--text-muted)]">{mission.primaryObjective}</p>
+              </div>
+              <div className="relative mx-auto h-28 w-28 shrink-0 md:mx-0">
+                <svg className="absolute h-full w-full -rotate-90">
+                  <circle cx="56" cy="56" r="45" fill="none" stroke="var(--border)" strokeWidth="5" />
+                  <circle
+                    cx="56"
+                    cy="56"
+                    r="45"
+                    fill="none"
+                    stroke="var(--purple)"
+                    strokeWidth="5"
+                    strokeLinecap="round"
+                    strokeDasharray={`${(weekCompletion / 100) * 282.6} 282.6`}
+                  />
+                </svg>
+                <div className="absolute inset-0 grid place-items-center text-center">
+                  <div>
+                    <div className="text-2xl font-bold">{weekCompletion}%</div>
+                    <div className="text-xs text-[var(--text-muted)]">Complete</div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          </section>
+
+          {isWeekLocked && (
+            <section className="vzn-panel rounded-[1.5rem] border-2 border-[var(--red)] p-6" style={{ background: 'color-mix(in srgb, var(--red) 7%, transparent)' }}>
+              <div className="mb-2 flex items-center gap-3">
+                <Lock size={24} className="text-[var(--red)]" />
+                <h3 className="text-xl font-bold text-[var(--red)]">Week Locked</h3>
+              </div>
+              <p className="text-sm text-[var(--text-muted)]">Complete 70% of Week {week - 1} to unlock this week.</p>
+            </section>
+          )}
+
+          <section>
+            <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <div className="vzn-section-label">Daily Missions</div>
+                <h2 className="mt-1 text-xl font-bold">7 days. 7 missions.</h2>
+              </div>
+              <span className="vzn-status-pill">{completedCount}/{dailyTasks.length} complete</span>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {dailyTasks.map((task: any) => {
+                const dayDebrief = startup?.dayDebriefs?.find((d: any) => d.week === week && d.day === task.day)
+                const isCompleted = !!dayDebrief?.completedAt
+
+                return (
+                  <Link
+                    key={task.day}
+                    href={isWeekLocked ? '#' : `/dashboard/warplan/${week}/${task.day}`}
+                    onClick={(e) => isWeekLocked && e.preventDefault()}
+                    style={{ ['--d' as any]: `${((task.day - 1) % 7) * 0.05}s` }}
+                    className={`vzn-panel veixon-lift veixon-rise rounded-2xl p-4 ${isWeekLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+                  >
+                    <div className="mb-3 flex items-start justify-between gap-2">
+                      <div className="text-sm font-bold">Day {task.day}</div>
+                      {isCompleted && <CheckCircle2 size={18} className="text-[var(--teal)]" />}
+                    </div>
+                    <p className="line-clamp-3 text-sm text-[var(--text-muted)]">{task.task}</p>
+                    {dayDebrief?.theSignal && <p className="mt-2 text-xs italic text-[var(--teal)]">{dayDebrief.theSignal}</p>}
+                    <span className="mt-3 inline-block rounded-full px-2 py-1 text-xs capitalize" style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
+                      {task.category}
+                    </span>
+                  </Link>
+                )
+              })}
+            </div>
+          </section>
+
+          <section className="grid gap-4 lg:grid-cols-3">
+            <div className="vzn-panel rounded-[1.5rem] p-6">
+              <div className="vzn-section-label text-[var(--amber)]">Week Milestone</div>
+              <h3 className="mt-3 text-lg font-bold">{mission.weeklyMilestone}</h3>
+            </div>
+
+            <div className="vzn-panel rounded-[1.5rem] p-6" style={{ borderColor: 'var(--red)', background: 'color-mix(in srgb, var(--red) 6%, transparent)' }}>
+              <div className="vzn-section-label text-[var(--red)]">Failure Signal</div>
+              <p className="mt-3 text-sm text-[var(--red)]">{mission.failureSignal}</p>
+            </div>
+
+            <div className="vzn-panel rounded-[1.5rem] p-6" style={{ borderColor: 'var(--purple)' }}>
+              <div className="flex items-start gap-3">
+                <VZNAvatar size="sm" />
+                <div>
+                  <div className="vzn-section-label">VZN Is Watching</div>
+                  <p className="mt-2 text-sm">{mission.vznWatching}</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {weekAnalysis && (
+            <section className="space-y-4">
+              <h2 className="text-xl font-bold">Week Analysis</h2>
+              {weekAnalysis.patterns?.length > 0 && (
+                <div className="vzn-panel rounded-2xl p-4" style={{ borderColor: 'var(--amber)' }}>
+                  <h3 className="mb-2 font-bold text-[var(--amber)]">Patterns Detected</h3>
+                  <ul className="space-y-1">
+                    {weekAnalysis.patterns.map((p: string, i: number) => <li key={i} className="text-sm">- {p}</li>)}
+                  </ul>
+                </div>
+              )}
+              {weekAnalysis.strengths?.length > 0 && (
+                <div className="vzn-panel rounded-2xl p-4" style={{ borderColor: 'var(--teal)' }}>
+                  <h3 className="mb-2 font-bold text-[var(--teal)]">Strengths</h3>
+                  <ul className="space-y-1">
+                    {weekAnalysis.strengths.map((s: string, i: number) => <li key={i} className="text-sm">- {s}</li>)}
+                  </ul>
+                </div>
+              )}
+              {weekAnalysis.warnings?.length > 0 && (
+                <div className="vzn-panel rounded-2xl p-4" style={{ borderColor: 'var(--red)' }}>
+                  <h3 className="mb-2 font-bold text-[var(--red)]">Warnings</h3>
+                  <ul className="space-y-1">
+                    {weekAnalysis.warnings.map((w: string, i: number) => <li key={i} className="text-sm">- {w}</li>)}
+                  </ul>
+                </div>
+              )}
+              {weekAnalysis.vznVerdict && (
+                <div className="vzn-panel rounded-2xl p-4">
+                  <p className="text-sm">{weekAnalysis.vznVerdict}</p>
+                </div>
+              )}
+            </section>
+          )}
         </div>
       </div>
-
-      <div className="mx-auto max-w-6xl space-y-8">
-        {/* Week Locked Warning */}
-        {isWeekLocked && (
-          <div className="rounded-2xl border-2 border-[var(--red)] p-6 bg-[var(--red)]/5">
-            <div className="flex items-center gap-3 mb-2">
-              <Lock size={24} className="text-[var(--red)]" />
-              <h3 className="text-xl font-bold text-[var(--red)]">Week Locked</h3>
-            </div>
-            <p className="text-sm text-[var(--text-muted)]">
-              Complete 70% of Week {week - 1} to unlock this week.
-            </p>
-          </div>
-        )}
-
-        {/* Days Grid */}
-        <div>
-          <h2 className="mb-4 text-xl font-bold">7 Days · 7 Missions</h2>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {mission.dailyTasks?.map((task: any) => {
-              const dayDebrief = startup.dayDebriefs?.find((d: any) => d.week === week && d.day === task.day)
-              const isCompleted = !!dayDebrief?.completedAt
-
-              return (
-                <Link
-                  key={task.day}
-                  href={isWeekLocked ? '#' : `/dashboard/warplan/${week}/${task.day}`}
-                  onClick={(e) => isWeekLocked && e.preventDefault()}
-                  className={`rounded-xl border p-4 transition cursor-pointer ${
-                    isCompleted
-                      ? 'border-[var(--teal)] bg-[var(--teal)]/5 hover:border-[var(--teal)]'
-                      : 'border-[var(--border)] bg-[var(--card-bg)] hover:border-[var(--purple)]'
-                  } ${isWeekLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="text-sm font-bold">Day {task.day}</div>
-                    {isCompleted && <CheckCircle2 size={18} className="text-[var(--teal)]" />}
-                  </div>
-                  <p className="text-sm line-clamp-2 text-[var(--text-muted)]">{task.task}</p>
-                  {dayDebrief?.theSignal && <p className="mt-2 text-xs italic text-[var(--teal)]">{dayDebrief.theSignal}</p>}
-                  <span className="mt-2 inline-block text-xs rounded-full px-2 py-1 bg-[var(--bg-secondary)] text-[var(--text-muted)]">
-                    {task.category}
-                  </span>
-                </Link>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Milestone */}
-        <div className="rounded-2xl border p-6 bg-[var(--card-bg)] border-[var(--border)]">
-          <div className="mb-3 flex items-center gap-2 text-[var(--amber)]">
-            <span className="text-xs font-semibold uppercase tracking-widest">Week Milestone</span>
-          </div>
-          <h3 className="text-lg font-bold">{mission.weeklyMilestone}</h3>
-        </div>
-
-        {/* Failure Signal */}
-        <div className="rounded-2xl border-2 border-[var(--red)] p-6 bg-[var(--red)]/5">
-          <div className="mb-3 flex items-center gap-2 text-[var(--red)]">
-            <span className="text-xs font-semibold uppercase tracking-widest">Failure Signal</span>
-          </div>
-          <p className="text-[var(--red)]">{mission.failureSignal}</p>
-        </div>
-
-        {/* VZN Watching */}
-        <div className="rounded-2xl border p-6 bg-[var(--card-bg)] border-[var(--purple)]">
-          <div className="flex items-start gap-3">
-            <VZNAvatar size="sm" />
-            <div>
-              <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-[var(--purple)]">VZN Is Watching</div>
-              <p className="text-sm">{mission.vznWatching}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Week Analysis */}
-        {weekAnalysis && (
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold">Week Analysis</h2>
-            {weekAnalysis.patterns && weekAnalysis.patterns.length > 0 && (
-              <div className="rounded-xl border border-[var(--amber)] bg-[var(--amber)]/5 p-4">
-                <h3 className="font-bold text-[var(--amber)] mb-2">Patterns Detected</h3>
-                <ul className="space-y-1">
-                  {weekAnalysis.patterns.map((p: string, i: number) => (
-                    <li key={i} className="text-sm">• {p}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {weekAnalysis.strengths && weekAnalysis.strengths.length > 0 && (
-              <div className="rounded-xl border border-[var(--teal)] bg-[var(--teal)]/5 p-4">
-                <h3 className="font-bold text-[var(--teal)] mb-2">Strengths</h3>
-                <ul className="space-y-1">
-                  {weekAnalysis.strengths.map((s: string, i: number) => (
-                    <li key={i} className="text-sm">• {s}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {weekAnalysis.warnings && weekAnalysis.warnings.length > 0 && (
-              <div className="rounded-xl border border-[var(--red)] bg-[var(--red)]/5 p-4">
-                <h3 className="font-bold text-[var(--red)] mb-2">Warnings</h3>
-                <ul className="space-y-1">
-                  {weekAnalysis.warnings.map((w: string, i: number) => (
-                    <li key={i} className="text-sm">• {w}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {weekAnalysis.vznVerdict && (
-              <div className="rounded-xl border border-[var(--purple)] bg-[var(--card-bg)] p-4">
-                <p className="text-sm">{weekAnalysis.vznVerdict}</p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </main>
+    </AppShell>
   )
 }

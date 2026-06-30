@@ -1,5 +1,6 @@
-import { chatJson } from '@/lib/ai'
+import { chatJsonSafe, TeaserSchema } from '@/lib/ai'
 import { CURRICULUM_GROUNDING, VZN_PERSONA } from '@/lib/curriculum/frameworks'
+import { rateLimit, clientIp, tooMany } from '@/lib/rate-limit'
 import { fallbackCurriculumAnalysis } from '@/lib/fallbacks'
 
 export const runtime = 'nodejs'
@@ -33,7 +34,8 @@ Every string under 24 words. Be specific to the idea — never generic.`
 function fallbackTeaser(idea: string, customer?: string, problem?: string) {
   const a = fallbackCurriculumAnalysis({ idea, targetCustomer: customer, problem }) as any
   const sc = a.scorecard
-  const composite = Math.round(Object.values(sc).reduce((s: number, d: any) => s + d.score, 0) / 7)
+  const scores = Object.values(sc).map((dimension: any) => Number(dimension?.score) || 0)
+  const composite = Math.round(scores.reduce((sum, score) => sum + score, 0) / Math.max(1, scores.length))
   return {
     failureProbability: a.failureProbability,
     composite,
@@ -56,17 +58,22 @@ function valid(t: any): boolean {
 }
 
 export async function POST(req: Request) {
+  // Public, unauthenticated route — rate limit by IP to prevent abuse of the AI bill.
+  const rl = rateLimit(`teaser:${clientIp(req)}`, 20, 60_000)
+  if (!rl.ok) return tooMany(rl.retryAfter)
+
   const body = await req.json().catch(() => ({}))
   const idea = String(body?.idea || '').trim()
   if (idea.length < 6) return Response.json({ error: 'Describe your idea in a few words.' }, { status: 400 })
 
   try {
-    const t = await chatJson<any>(
+    // Schema-validated at the gateway (repair-retries once); falls back below on failure.
+    const t = await chatJsonSafe(
+      TeaserSchema,
       { system: TEASER_SYSTEM, messages: [{ role: 'user', content: idea }], maxTokens: 700, temperature: 0.5 },
       { tier: 'fast' },
     )
-    if (valid(t)) return Response.json({ ...t, source: 'ai' })
-    throw new Error('incomplete model output')
+    return Response.json({ ...t, source: 'ai' })
   } catch {
     return Response.json(fallbackTeaser(idea, body?.customer, body?.problem))
   }

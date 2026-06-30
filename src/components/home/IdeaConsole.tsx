@@ -157,12 +157,14 @@ export default function IdeaConsole() {
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
                 <div className="font-mono text-[11px] uppercase tracking-widest text-[var(--text-muted)]">
-                  The brutal number {teaser.source === 'ai' && <span className="ml-1 rounded bg-[var(--text-primary)] px-1.5 py-0.5 text-[9px] text-[var(--bg-primary)]">LIVE AI</span>}
+                  The brutal number
+                  <span className="ml-1 rounded border border-[var(--text-muted)] px-1.5 py-0.5 text-[9px] text-[var(--text-muted)]">EST.</span>
+                  {teaser.source === 'ai' && <span className="ml-1 rounded bg-[var(--text-primary)] px-1.5 py-0.5 text-[9px] text-[var(--bg-primary)]">LIVE AI</span>}
                 </div>
                 <div className="mt-1 text-[56px] font-extrabold leading-none text-[var(--red)]">
-                  <CountUp to={teaser.failureProbability} />%
+                  ~<CountUp to={teaser.failureProbability} />%
                 </div>
-                <div className="text-[13px] text-[var(--text-muted)]">probability you fail if nothing changes</div>
+                <div className="text-[13px] text-[var(--text-muted)]">estimated risk if nothing changes — a directional signal, not a measured stat</div>
               </div>
               <div className="text-right">
                 <div className="text-[32px] font-bold text-[var(--text-primary)]">{teaser.composite}<span className="text-base text-[var(--text-muted)]">/10</span></div>
